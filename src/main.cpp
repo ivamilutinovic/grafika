@@ -168,6 +168,12 @@ int main() {
     Model ourModel("resources/objects/barn/uploads_files_4499267_Farm_free_obj.obj");
     ourModel.SetShaderTextureNamePrefix("material.");
 
+    Model duckModel("resources/objects/duck/scene.gltf");
+    duckModel.SetShaderTextureNamePrefix("material.");
+
+    Model horseModel("resources/objects/horse/scene.gltf");
+    horseModel.SetShaderTextureNamePrefix("material.");
+
     PointLight& pointLight = programState->pointLight;
     pointLight.position = glm::vec3(4.0f, 4.0, 0.0);
     pointLight.ambient = glm::vec3(1.0, 1.0, 1.0);
@@ -221,13 +227,40 @@ int main() {
         ourShader.setMat4("projection", projection);
         ourShader.setMat4("view", view);
 
-        // render the loaded model
+        // render the barn model
         glm::mat4 model = glm::mat4(1.0f);
         model = glm::translate(model,
-                               programState->backpackPosition); // translate it down so it's at the center of the scene
-        model = glm::scale(model, glm::vec3(programState->backpackScale));    // it's a bit too big for our scene, so scale it down
+                               glm::vec3(0, -2, 0));
+        model = glm::scale(model, glm::vec3(programState->backpackScale));
         ourShader.setMat4("model", model);
         ourModel.Draw(ourShader);
+
+        //render the duck model
+        std::vector<int> z_coord_ducks= {0, -1, 2, 4,3};
+        std::vector<int> x_coord_ducks= {0, 1, 7, 6, 5};
+
+        for(int i = 0; i < 5; i++) {
+            glm::mat4 model2 = glm::mat4(1.0f);
+            model2 = glm::translate(model2,glm::vec3(x_coord_ducks[i], -1.9, z_coord_ducks[i]));
+            model2 = glm::scale(model2,glm::vec3(0.2, 0.2, 0.2));
+            ourShader.setMat4("model", model2);
+            duckModel.Draw(ourShader);
+        }
+        //render the horse model
+
+        std::vector<int> z_coord_horses = {1, 5, 7, -5, 6};
+        std::vector<int> x_coord_horses = {1, -5, 3, -7, 2};
+        for(int i = 0; i < 5; i++) {
+            glm::mat4 model3 = glm::mat4(1.0f);
+            model3 = glm::translate(model3,glm::vec3(x_coord_horses[i], -1.9, z_coord_horses[i]));
+            model3 = glm::scale(model3, glm::vec3(0.005, 0.005,0.005));
+            if(i == 0)
+                model3 = glm::rotate(model3, (float)glm::radians(-90.0), glm::vec3(0, 1, 0));
+            if(i == 4)
+                model3 = glm::rotate(model3, (float)glm::radians(-45.0), glm::vec3(0, 1, 0));
+            ourShader.setMat4("model", model3);
+            horseModel.Draw(ourShader);
+        }
 
         if (programState->ImGuiEnabled)
             DrawImGui(programState);
@@ -305,7 +338,7 @@ void DrawImGui(ProgramState *programState) {
     ImGui_ImplGlfw_NewFrame();
     ImGui::NewFrame();
 
-
+/*
     {
         static float f = 0.0f;
         ImGui::Begin("Hello window");
@@ -320,7 +353,7 @@ void DrawImGui(ProgramState *programState) {
         ImGui::DragFloat("pointLight.quadratic", &programState->pointLight.quadratic, 0.05, 0.0, 1.0);
         ImGui::End();
     }
-
+*/
     {
         ImGui::Begin("Camera info");
         const Camera& c = programState->camera;
