@@ -1,11 +1,8 @@
-# project_base
-Prazan projekat sa pratećim bibliotekama koje koristimo na času. 
+Projekat za kurs Računarska grafika 
 
-# Uputstvo
-1. `git clone https://github.com/matf-racunarska-grafika/project_base.git`
-2. CLion -> Open -> path/to/my/project_base
-3. Main se nalazi u src/main.cpp
-4. Cpp fajlovi idu u src folder
-5. Zaglavlja (h i hpp) fajlovi idu u include
-6. Šejderi idu u folder shaders. `Vertex shader` ima ekstenziju `.vs`, `fragment shader` ima ekstenziju `.fs`
-7. ALT+SHIFT+F10 -> project_base -> run
+# Modeli:
+model štale - https://www.cgtrader.com/free-3d-models/architectural/other/free-farm-building-storage-4k-pbr-game-ready
+
+model konja - https://sketchfab.com/3d-models/horse-29a679df4a014b55a9476b520b430895
+
+model patke - https://sketchfab.com/3d-models/duck-1ef90928c6994bb28d8069069dd5adce
