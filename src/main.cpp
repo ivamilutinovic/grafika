@@ -161,15 +161,19 @@ int main() {
     // -----------------------------
     glEnable(GL_DEPTH_TEST);
 
-    //face culling
-    glEnable(GL_CULL_FACE);
-    glCullFace(GL_BACK);
+//    //face culling
+//    glEnable(GL_CULL_FACE);
+//    glCullFace(GL_BACK);
 
+    //blending
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
     // build and compile shaders
     // -------------------------
     Shader ourShader("resources/shaders/2.model_lighting.vs", "resources/shaders/2.model_lighting.fs");
     Shader skyboxShader("resources/shaders/skybox.vs", "resources/shaders/skybox.fs");
+    Shader blendShader("resources/shaders/2.model_lighting.vs", "resources/shaders/blending.fs");
     // load models
     // -----------
     Model ourModel("resources/objects/barn/uploads_files_4499267_Farm_free_obj.obj");
@@ -179,6 +183,9 @@ int main() {
     duckModel.SetShaderTextureNamePrefix("material.");
 
     Model horseModel("resources/objects/horse/scene.gltf");
+    horseModel.SetShaderTextureNamePrefix("material.");
+
+    Model lanternModel("resources/objects/lantern/scene.gltf");
     horseModel.SetShaderTextureNamePrefix("material.");
 
     PointLight& pointLight = programState->pointLight;
@@ -263,7 +270,7 @@ int main() {
     unsigned int cubemapTexture = loadCubemap(faces);
 
     skyboxShader.use();
-    skyboxShader.setInt("skybox", 0);skyboxShader.use();
+    skyboxShader.setInt("skybox", 0);
 
     // draw in wireframe
     //glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
@@ -308,6 +315,21 @@ int main() {
         ourShader.setMat4("projection", projection);
         ourShader.setMat4("view", view);
 
+
+        blendShader.use();
+        blendShader.setVec3("pointLight.position", pointLight.position);
+        blendShader.setVec3("pointLight.ambient", pointLight.ambient);
+        blendShader.setVec3("pointLight.diffuse", pointLight.diffuse);
+        blendShader.setVec3("pointLight.specular", pointLight.specular);
+        blendShader.setFloat("pointLight.constant", pointLight.constant);
+        blendShader.setFloat("pointLight.linear", pointLight.linear);
+        blendShader.setFloat("pointLight.quadratic", pointLight.quadratic);
+        blendShader.setVec3("viewPosition", programState->camera.Position);
+        blendShader.setFloat("material.shininess", 32.0f);
+
+        blendShader.setMat4("projection", projection);
+        blendShader.setMat4("view", view);
+
         // render the barn model
         glm::mat4 model = glm::mat4(1.0f);
         model = glm::translate(model,
@@ -315,6 +337,7 @@ int main() {
         model = glm::scale(model, glm::vec3(programState->backpackScale));
         ourShader.setMat4("model", model);
         ourModel.Draw(ourShader);
+
 
         //render the duck model
         std::vector<int> z_coord_ducks= {0, -1, 2, 4,3};
@@ -335,13 +358,23 @@ int main() {
             glm::mat4 model3 = glm::mat4(1.0f);
             model3 = glm::translate(model3,glm::vec3(x_coord_horses[i], -1.9, z_coord_horses[i]));
             model3 = glm::scale(model3, glm::vec3(0.005, 0.005,0.005));
-            if(i == 0)
+            if(i == 0) {
                 model3 = glm::rotate(model3, (float)glm::radians(-90.0), glm::vec3(0, 1, 0));
-            if(i == 4)
+            }
+            if(i == 4) {
                 model3 = glm::rotate(model3, (float)glm::radians(-45.0), glm::vec3(0, 1, 0));
+            }
             ourShader.setMat4("model", model3);
             horseModel.Draw(ourShader);
         }
+
+        // render the  lantern model
+        glm::mat4 model4 = glm::mat4(1.0f);
+        model4 = glm::translate(model4,glm::vec3(0, 0, 6));
+        model4 = glm::rotate(model4, (float)glm::radians(-90.0), glm::vec3(1, 0, 0));
+        model4 = glm::scale(model4, glm::vec3(4.0, 4.0, 4.0));
+        blendShader.setMat4("model", model4);
+        lanternModel.Draw(blendShader);
 
         //render skybox
         glDepthMask(GL_FALSE);
