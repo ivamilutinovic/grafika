@@ -38,6 +38,8 @@ float lastX = SCR_WIDTH / 2.0f;
 float lastY = SCR_HEIGHT / 2.0f;
 bool firstMouse = true;
 
+bool blinn = false;
+
 // timing
 float deltaTime = 0.0f;
 float lastFrame = 0.0f;
@@ -51,6 +53,29 @@ struct PointLight {
     float constant;
     float linear;
     float quadratic;
+};
+
+struct DirLight {
+    glm::vec3 direction;
+
+    glm::vec3 ambient;
+    glm::vec3 diffuse;
+    glm::vec3 specular;
+};
+
+struct SpotLight {
+    glm::vec3 position;
+    glm::vec3 direction;
+    float cutOff;
+    float outerCutOff;
+
+    float constant;
+    float linear;
+    float quadratic;
+
+    glm::vec3 ambient;
+    glm::vec3 diffuse;
+    glm::vec3 specular;
 };
 
 struct ProgramState {
@@ -117,7 +142,7 @@ int main() {
 
     // glfw window creation
     // --------------------
-    GLFWwindow *window = glfwCreateWindow(SCR_WIDTH, SCR_HEIGHT, "LearnOpenGL", NULL, NULL);
+    GLFWwindow *window = glfwCreateWindow(SCR_WIDTH, SCR_HEIGHT, "Farma", NULL, NULL);
     if (window == NULL) {
         std::cout << "Failed to create GLFW window" << std::endl;
         glfwTerminate();
@@ -162,18 +187,18 @@ int main() {
     glEnable(GL_DEPTH_TEST);
 
 //    //face culling
+//    //konj je celav kad se ukljuci face culling :(
 //    glEnable(GL_CULL_FACE);
 //    glCullFace(GL_BACK);
 
-    //blending
-    glEnable(GL_BLEND);
-    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+
 
     // build and compile shaders
     // -------------------------
     Shader ourShader("resources/shaders/2.model_lighting.vs", "resources/shaders/2.model_lighting.fs");
     Shader skyboxShader("resources/shaders/skybox.vs", "resources/shaders/skybox.fs");
-    Shader blendShader("resources/shaders/2.model_lighting.vs", "resources/shaders/blending.fs");
+    Shader cubeShader("resources/shaders/cubeShader.vs", "resources/shaders/cubeShader.fs");
+
     // load models
     // -----------
     Model ourModel("resources/objects/barn/uploads_files_4499267_Farm_free_obj.obj");
@@ -188,11 +213,31 @@ int main() {
     Model lanternModel("resources/objects/lantern/scene.gltf");
     horseModel.SetShaderTextureNamePrefix("material.");
 
+    // svetla
+
+    DirLight directional;
+    directional.direction = glm::vec3(5.50f, 5.0f, 5.50f);
+    directional.ambient = glm::vec3(0.09f);
+    directional.diffuse = glm::vec3(0.4f);
+    directional.specular = glm::vec3(0.5f);
+
+    SpotLight spotlight;
+    spotlight.position = programState->camera.Position;
+    spotlight.direction = programState->camera.Front;
+    spotlight.ambient = glm::vec3(0.f);
+    spotlight.diffuse = glm::vec3(1.0f, 1.0f, 1.0f);
+    spotlight.specular = glm::vec3(1.0f, 1.0f, 1.0f);
+    spotlight.cutOff = glm::cos(glm::radians(12.5f));
+    spotlight.outerCutOff = glm::cos(glm::radians(15.0f));
+    spotlight.constant = 1.0f;
+    spotlight.linear = 0.09f;
+    spotlight.quadratic = 0.032f;
+
     PointLight& pointLight = programState->pointLight;
-    pointLight.position = glm::vec3(4.0f, 4.0, 0.0);
-    pointLight.ambient = glm::vec3(1.0, 1.0, 1.0);
+    pointLight.position = glm::vec3(-2.0f, -1.7, 0.0);
+    pointLight.ambient = glm::vec3(0.1, 0.1, 0.1);
     pointLight.diffuse = glm::vec3(0.6, 0.6, 0.6);
-    pointLight.specular = glm::vec3(1.0, 1.0, 1.0);
+    pointLight.specular = glm::vec3(0.5, 0.5, 0.5);
 
     pointLight.constant = 1.0f;
     pointLight.linear = 0.09f;
@@ -242,6 +287,63 @@ int main() {
             -1.0f, -1.0f,  1.0f,
             1.0f, -1.0f,  1.0f
     };
+
+    float cubeVertices[] = {
+            // positions                      // normals
+            -0.5f, -0.5f, -0.5f,  0.0f,  0.0f, -1.0f,
+            0.5f, -0.5f, -0.5f,  0.0f,  0.0f, -1.0f,
+            0.5f,  0.5f, -0.5f,  0.0f,  0.0f, -1.0f,
+            0.5f,  0.5f, -0.5f,  0.0f,  0.0f, -1.0f,
+            -0.5f,  0.5f, -0.5f,  0.0f,  0.0f, -1.0f,
+            -0.5f, -0.5f, -0.5f,  0.0f,  0.0f, -1.0f,
+
+            -0.5f, -0.5f,  0.5f,  0.0f,  0.0f, 1.0f,
+            0.5f, -0.5f,  0.5f,  0.0f,  0.0f, 1.0f,
+            0.5f,  0.5f,  0.5f,  0.0f,  0.0f, 1.0f,
+            0.5f,  0.5f,  0.5f,  0.0f,  0.0f, 1.0f,
+            -0.5f,  0.5f,  0.5f,  0.0f,  0.0f, 1.0f,
+            -0.5f, -0.5f,  0.5f,  0.0f,  0.0f, 1.0f,
+
+            -0.5f,  0.5f,  0.5f, -1.0f,  0.0f,  0.0f,
+            -0.5f,  0.5f, -0.5f, -1.0f,  0.0f,  0.0f,
+            -0.5f, -0.5f, -0.5f, -1.0f,  0.0f,  0.0f,
+            -0.5f, -0.5f, -0.5f, -1.0f,  0.0f,  0.0f,
+            -0.5f, -0.5f,  0.5f, -1.0f,  0.0f,  0.0f,
+            -0.5f,  0.5f,  0.5f, -1.0f,  0.0f,  0.0f,
+
+            0.5f,  0.5f,  0.5f,  1.0f,  0.0f,  0.0f,
+            0.5f,  0.5f, -0.5f,  1.0f,  0.0f,  0.0f,
+            0.5f, -0.5f, -0.5f,  1.0f,  0.0f,  0.0f,
+            0.5f, -0.5f, -0.5f,  1.0f,  0.0f,  0.0f,
+            0.5f, -0.5f,  0.5f,  1.0f,  0.0f,  0.0f,
+            0.5f,  0.5f,  0.5f,  1.0f,  0.0f,  0.0f,
+
+            -0.5f, -0.5f, -0.5f,  0.0f, -1.0f,  0.0f,
+            0.5f, -0.5f, -0.5f,  0.0f, -1.0f,  0.0f,
+            0.5f, -0.5f,  0.5f,  0.0f, -1.0f,  0.0f,
+            0.5f, -0.5f,  0.5f,  0.0f, -1.0f,  0.0f,
+            -0.5f, -0.5f,  0.5f,  0.0f, -1.0f,  0.0f,
+            -0.5f, -0.5f, -0.5f,  0.0f, -1.0f,  0.0f,
+
+            -0.5f,  0.5f, -0.5f,  0.0f,  1.0f,  0.0f,
+            0.5f,  0.5f, -0.5f,  0.0f,  1.0f,  0.0f,
+            0.5f,  0.5f,  0.5f,  0.0f,  1.0f,  0.0f,
+            0.5f,  0.5f,  0.5f,  0.0f,  1.0f,  0.0f,
+            -0.5f,  0.5f,  0.5f,  0.0f,  1.0f,  0.0f,
+            -0.5f,  0.5f, -0.5f,  0.0f,  1.0f,  0.0f
+    };
+
+    // cube VAO
+    unsigned int cubeVAO, cubeVBO;
+    glGenVertexArrays(1, &cubeVAO);
+    glGenBuffers(1, &cubeVBO);
+    glBindVertexArray(cubeVAO);
+    glBindBuffer(GL_ARRAY_BUFFER, cubeVBO);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(cubeVertices), &cubeVertices, GL_STATIC_DRAW);
+    glEnableVertexAttribArray(0);
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void*)0);
+    glEnableVertexAttribArray(1);
+    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void*)(3 * sizeof(float)));
 
     // skybox VAO
     unsigned int skyboxVAO, skyboxVBO;
@@ -299,9 +401,11 @@ int main() {
                                                 (float) SCR_WIDTH / (float) SCR_HEIGHT, 0.1f, 100.0f);
         glm::mat4 view = programState->camera.GetViewMatrix();
 
-        // don't forget to enable shader before setting uniforms
         ourShader.use();
-        pointLight.position = glm::vec3(4.0 * cos(currentFrame), 4.0f, 4.0 * sin(currentFrame));
+
+        // pointlight
+        //pointLight.position = glm::vec3(4.0 * cos(currentFrame), 4.0f, 4.0 * sin(currentFrame));
+        //pointLight.position = glm::vec3(0, 0, 6);
         ourShader.setVec3("pointLight.position", pointLight.position);
         ourShader.setVec3("pointLight.ambient", pointLight.ambient);
         ourShader.setVec3("pointLight.diffuse", pointLight.diffuse);
@@ -312,28 +416,46 @@ int main() {
         ourShader.setVec3("viewPosition", programState->camera.Position);
         ourShader.setFloat("material.shininess", 32.0f);
 
+        // spotLight
+        ourShader.setVec3("spotLight.position", programState->camera.Position);
+        ourShader.setVec3("spotLight.direction", programState->camera.Front);
+        ourShader.setVec3("spotLight.ambient", 0.0f, 0.0f, 0.0f);
+        ourShader.setVec3("spotLight.diffuse", 1.0f, 1.0f, 1.0f);
+        ourShader.setVec3("spotLight.specular", 1.0f, 1.0f, 1.0f);
+        ourShader.setFloat("spotLight.constant", 1.0f);
+        ourShader.setFloat("spotLight.linear", 0.09);
+        ourShader.setFloat("spotLight.quadratic", 0.032);
+        ourShader.setFloat("spotLight.cutOff", glm::cos(glm::radians(12.5f)));
+        ourShader.setFloat("spotLight.outerCutOff", glm::cos(glm::radians(15.0f)));
+
+        // directional light
+        ourShader.setVec3("dirLight.direction", -0.2f, -1.0f, -0.3f);
+        ourShader.setVec3("dirLight.ambient", 0.05f, 0.05f, 0.05f);
+        ourShader.setVec3("dirLight.diffuse", 0.4f, 0.4f, 0.4f);
+        ourShader.setVec3("dirLight.specular", 0.5f, 0.5f, 0.5f);
+
         ourShader.setMat4("projection", projection);
         ourShader.setMat4("view", view);
+        ourShader.setBool("blinn", blinn);
 
 
-        blendShader.use();
-        blendShader.setVec3("pointLight.position", pointLight.position);
-        blendShader.setVec3("pointLight.ambient", pointLight.ambient);
-        blendShader.setVec3("pointLight.diffuse", pointLight.diffuse);
-        blendShader.setVec3("pointLight.specular", pointLight.specular);
-        blendShader.setFloat("pointLight.constant", pointLight.constant);
-        blendShader.setFloat("pointLight.linear", pointLight.linear);
-        blendShader.setFloat("pointLight.quadratic", pointLight.quadratic);
-        blendShader.setVec3("viewPosition", programState->camera.Position);
-        blendShader.setFloat("material.shininess", 32.0f);
+        // cube
+        cubeShader.use();
+        cubeShader.setMat4("view", view);
+        cubeShader.setMat4("projection", projection);
+        glm::mat4  model = glm::mat4(1.0f);
+        model = glm::translate(model, glm::vec3(-2.0f, -1.70f, 0.0f));
+        model = glm::scale(model, glm::vec3(0.070, 0.070, 0.070));
+        cubeShader.setMat4("model", model);
+        glBindVertexArray(cubeVAO);
+        glDrawArrays(GL_TRIANGLES, 0, 36);
+        glBindVertexArray(0);
 
-        blendShader.setMat4("projection", projection);
-        blendShader.setMat4("view", view);
+        ourShader.use();
 
         // render the barn model
-        glm::mat4 model = glm::mat4(1.0f);
-        model = glm::translate(model,
-                               glm::vec3(0, -2, 0));
+        model = glm::mat4(1.0f);
+        model = glm::translate(model,glm::vec3(0, -2, 0));
         model = glm::scale(model, glm::vec3(programState->backpackScale));
         ourShader.setMat4("model", model);
         ourModel.Draw(ourShader);
@@ -368,13 +490,17 @@ int main() {
             horseModel.Draw(ourShader);
         }
 
+
+        glEnable(GL_BLEND);
+        glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
         // render the  lantern model
         glm::mat4 model4 = glm::mat4(1.0f);
-        model4 = glm::translate(model4,glm::vec3(0, 0, 6));
+        model4 = glm::translate(model4,glm::vec3(-2.0f, -1.9f, 0));
         model4 = glm::rotate(model4, (float)glm::radians(-90.0), glm::vec3(1, 0, 0));
         model4 = glm::scale(model4, glm::vec3(4.0, 4.0, 4.0));
-        blendShader.setMat4("model", model4);
-        lanternModel.Draw(blendShader);
+        ourShader.setMat4("model", model4);
+        lanternModel.Draw(ourShader);
+        glDisable(GL_BLEND);
 
         //render skybox
         glDepthMask(GL_FALSE);
@@ -504,6 +630,9 @@ void key_callback(GLFWwindow *window, int key, int scancode, int action, int mod
         } else {
             glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
         }
+    }
+    if(glfwGetKey(window, GLFW_KEY_B) == GLFW_PRESS) {
+        blinn = !blinn;
     }
 }
 
