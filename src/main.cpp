@@ -39,6 +39,7 @@ float lastY = SCR_HEIGHT / 2.0f;
 bool firstMouse = true;
 
 bool blinn = false;
+float heightScale = 0.08;
 
 // timing
 float deltaTime = 0.0f;
@@ -127,6 +128,8 @@ void ProgramState::LoadFromFile(std::string filename) {
 ProgramState *programState;
 
 void DrawImGui(ProgramState *programState);
+unsigned int loadTexture(const char *path);
+void renderQuad();
 
 int main() {
     // glfw: initialize and configure
@@ -198,6 +201,22 @@ int main() {
     Shader ourShader("resources/shaders/2.model_lighting.vs", "resources/shaders/2.model_lighting.fs");
     Shader skyboxShader("resources/shaders/skybox.vs", "resources/shaders/skybox.fs");
     Shader cubeShader("resources/shaders/cubeShader.vs", "resources/shaders/cubeShader.fs");
+    Shader normalMappingShader("resources/shaders/normal_mapping.vs", "resources/shaders/normal_mapping.fs");
+
+    // load textures
+    // -------------
+    unsigned int diffuseMap = loadTexture(FileSystem::getPath("resources/textures/Brick02_Base_Color.png").c_str());
+    unsigned int normalMap  = loadTexture(FileSystem::getPath("resources/textures/Brick02_Normal.png").c_str());
+    unsigned int depthMap  = loadTexture(FileSystem::getPath("resources/textures/Brick02_Height.png").c_str());
+
+
+    // shader configuration
+    // --------------------
+    normalMappingShader.use();
+    normalMappingShader.setInt("diffuseMap", 0);
+    normalMappingShader.setInt("normalMap", 1);
+    normalMappingShader.setInt("depthMap", 2);
+
 
     // load models
     // -----------
@@ -238,7 +257,6 @@ int main() {
     pointLight.ambient = glm::vec3(0.1, 0.1, 0.1);
     pointLight.diffuse = glm::vec3(0.6, 0.6, 0.6);
     pointLight.specular = glm::vec3(0.5, 0.5, 0.5);
-
     pointLight.constant = 1.0f;
     pointLight.linear = 0.09f;
     pointLight.quadratic = 0.032f;
@@ -400,6 +418,55 @@ int main() {
         glm::mat4 projection = glm::perspective(glm::radians(programState->camera.Zoom),
                                                 (float) SCR_WIDTH / (float) SCR_HEIGHT, 0.1f, 100.0f);
         glm::mat4 view = programState->camera.GetViewMatrix();
+        glm::mat4 model = glm::mat4(1.0f);
+
+        normalMappingShader.use();
+        normalMappingShader.setMat4("projection", projection);
+        normalMappingShader.setMat4("view", view);
+
+        // render normal-mapped quad
+        model = glm::mat4(1.0f);
+//        model = glm::translate(model, glm::vec3(0.0f, 0.0f, 5.40f));
+        normalMappingShader.setMat4("model", model);
+        normalMappingShader.setVec3("viewPos", programState->camera.Position);
+
+        // pointlight
+        normalMappingShader.setVec3("pointLight.position", pointLight.position);
+        normalMappingShader.setVec3("pointLight.ambient", pointLight.ambient);
+        normalMappingShader.setVec3("pointLight.diffuse", pointLight.diffuse);
+        normalMappingShader.setVec3("pointLight.specular", pointLight.specular);
+        normalMappingShader.setFloat("pointLight.constant", pointLight.constant);
+        normalMappingShader.setFloat("pointLight.linear", pointLight.linear);
+        normalMappingShader.setFloat("pointLight.quadratic", pointLight.quadratic);
+
+        // spotLight
+        normalMappingShader.setVec3("spotLight.position", programState->camera.Position);
+        normalMappingShader.setVec3("spotLight.direction", programState->camera.Front);
+        normalMappingShader.setVec3("spotLight.ambient", 0.0f, 0.0f, 0.0f);
+        normalMappingShader.setVec3("spotLight.diffuse", 1.0f, 1.0f, 1.0f);
+        normalMappingShader.setVec3("spotLight.specular", 1.0f, 1.0f, 1.0f);
+        normalMappingShader.setFloat("spotLight.constant", 1.0f);
+        normalMappingShader.setFloat("spotLight.linear", 0.09);
+        normalMappingShader.setFloat("spotLight.quadratic", 0.032);
+        normalMappingShader.setFloat("spotLight.cutOff", glm::cos(glm::radians(12.5f)));
+        normalMappingShader.setFloat("spotLight.outerCutOff", glm::cos(glm::radians(15.0f)));
+
+        // directional light
+        normalMappingShader.setVec3("dirLight.direction", -0.2f, -1.0f, -0.3f);
+        normalMappingShader.setVec3("dirLight.ambient", 0.05f, 0.05f, 0.05f);
+        normalMappingShader.setVec3("dirLight.diffuse", 0.4f, 0.4f, 0.4f);
+        normalMappingShader.setVec3("dirLight.specular", 0.5f, 0.5f, 0.5f);
+
+        normalMappingShader.setBool("blinn", blinn);
+        normalMappingShader.setFloat("heightScale", heightScale);
+
+        glActiveTexture(GL_TEXTURE0);
+        glBindTexture(GL_TEXTURE_2D, diffuseMap);
+        glActiveTexture(GL_TEXTURE1);
+        glBindTexture(GL_TEXTURE_2D, normalMap);
+        glActiveTexture(GL_TEXTURE2);
+        glBindTexture(GL_TEXTURE_2D, depthMap);
+        renderQuad();
 
         ourShader.use();
 
@@ -434,16 +501,16 @@ int main() {
         ourShader.setVec3("dirLight.diffuse", 0.4f, 0.4f, 0.4f);
         ourShader.setVec3("dirLight.specular", 0.5f, 0.5f, 0.5f);
 
-        ourShader.setMat4("projection", projection);
-        ourShader.setMat4("view", view);
         ourShader.setBool("blinn", blinn);
 
+        ourShader.setMat4("projection", projection);
+        ourShader.setMat4("view", view);
 
         // cube
         cubeShader.use();
         cubeShader.setMat4("view", view);
         cubeShader.setMat4("projection", projection);
-        glm::mat4  model = glm::mat4(1.0f);
+        model = glm::mat4(1.0f);
         model = glm::translate(model, glm::vec3(-2.0f, -1.70f, 0.0f));
         model = glm::scale(model, glm::vec3(0.070, 0.070, 0.070));
         cubeShader.setMat4("model", model);
@@ -533,6 +600,12 @@ int main() {
     ImGui::DestroyContext();
     // glfw: terminate, clearing all previously allocated GLFW resources.
     // ------------------------------------------------------------------
+
+    glDeleteVertexArrays(1, &skyboxVAO);
+    glDeleteBuffers(1, &skyboxVBO);
+    glDeleteVertexArrays(1, &cubeVAO);
+    glDeleteBuffers(1, &cubeVBO);
+
     glfwTerminate();
     return 0;
 }
@@ -671,6 +744,134 @@ unsigned int loadCubemap(vector<std::string> faces)
     glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
     glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
     glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
+
+    return textureID;
+}
+
+unsigned int quadVAO = 0;
+unsigned int quadVBO;
+void renderQuad()
+{
+    if (quadVAO == 0)
+    {
+        // positions
+        glm::vec3 pos1(60.0f,  -2.0f, 60.0f);
+        glm::vec3 pos2(60.0f, -2.0f, -60.0f);
+        glm::vec3 pos3( -60.0f, -2.0f, -60.0f);
+        glm::vec3 pos4( -60.0f, -2.0f, 60.0f);
+        // texture coordinates
+        glm::vec2 uv1(0.0f, 60.0f);
+        glm::vec2 uv2(0.0f, 0.0f);
+        glm::vec2 uv3(60.0f, 0.0f);
+        glm::vec2 uv4(60.0f, 60.0f);
+        // normal vector
+        glm::vec3 nm(0.0f, 0.0f, 1.0f);
+
+        // calculate tangent/bitangent vectors of both triangles
+        glm::vec3 tangent1, bitangent1;
+        glm::vec3 tangent2, bitangent2;
+        // triangle 1
+        // ----------
+        glm::vec3 edge1 = pos2 - pos1;
+        glm::vec3 edge2 = pos3 - pos1;
+        glm::vec2 deltaUV1 = uv2 - uv1;
+        glm::vec2 deltaUV2 = uv3 - uv1;
+
+        float f = 1.0f / (deltaUV1.x * deltaUV2.y - deltaUV2.x * deltaUV1.y);
+
+        tangent1.x = f * (deltaUV2.y * edge1.x - deltaUV1.y * edge2.x);
+        tangent1.y = f * (deltaUV2.y * edge1.y - deltaUV1.y * edge2.y);
+        tangent1.z = f * (deltaUV2.y * edge1.z - deltaUV1.y * edge2.z);
+
+        bitangent1.x = f * (-deltaUV2.x * edge1.x + deltaUV1.x * edge2.x);
+        bitangent1.y = f * (-deltaUV2.x * edge1.y + deltaUV1.x * edge2.y);
+        bitangent1.z = f * (-deltaUV2.x * edge1.z + deltaUV1.x * edge2.z);
+
+        // triangle 2
+        // ----------
+        edge1 = pos3 - pos1;
+        edge2 = pos4 - pos1;
+        deltaUV1 = uv3 - uv1;
+        deltaUV2 = uv4 - uv1;
+
+        f = 1.0f / (deltaUV1.x * deltaUV2.y - deltaUV2.x * deltaUV1.y);
+
+        tangent2.x = f * (deltaUV2.y * edge1.x - deltaUV1.y * edge2.x);
+        tangent2.y = f * (deltaUV2.y * edge1.y - deltaUV1.y * edge2.y);
+        tangent2.z = f * (deltaUV2.y * edge1.z - deltaUV1.y * edge2.z);
+
+
+        bitangent2.x = f * (-deltaUV2.x * edge1.x + deltaUV1.x * edge2.x);
+        bitangent2.y = f * (-deltaUV2.x * edge1.y + deltaUV1.x * edge2.y);
+        bitangent2.z = f * (-deltaUV2.x * edge1.z + deltaUV1.x * edge2.z);
+
+
+        float quadVertices[] = {
+                // positions            // normal         // texcoords  // tangent                          // bitangent
+                pos1.x, pos1.y, pos1.z, nm.x, nm.y, nm.z, uv1.x, uv1.y, tangent1.x, tangent1.y, tangent1.z, bitangent1.x, bitangent1.y, bitangent1.z,
+                pos2.x, pos2.y, pos2.z, nm.x, nm.y, nm.z, uv2.x, uv2.y, tangent1.x, tangent1.y, tangent1.z, bitangent1.x, bitangent1.y, bitangent1.z,
+                pos3.x, pos3.y, pos3.z, nm.x, nm.y, nm.z, uv3.x, uv3.y, tangent1.x, tangent1.y, tangent1.z, bitangent1.x, bitangent1.y, bitangent1.z,
+
+                pos1.x, pos1.y, pos1.z, nm.x, nm.y, nm.z, uv1.x, uv1.y, tangent2.x, tangent2.y, tangent2.z, bitangent2.x, bitangent2.y, bitangent2.z,
+                pos3.x, pos3.y, pos3.z, nm.x, nm.y, nm.z, uv3.x, uv3.y, tangent2.x, tangent2.y, tangent2.z, bitangent2.x, bitangent2.y, bitangent2.z,
+                pos4.x, pos4.y, pos4.z, nm.x, nm.y, nm.z, uv4.x, uv4.y, tangent2.x, tangent2.y, tangent2.z, bitangent2.x, bitangent2.y, bitangent2.z
+        };
+        // configure plane VAO
+        glGenVertexArrays(1, &quadVAO);
+        glGenBuffers(1, &quadVBO);
+        glBindVertexArray(quadVAO);
+        glBindBuffer(GL_ARRAY_BUFFER, quadVBO);
+        glBufferData(GL_ARRAY_BUFFER, sizeof(quadVertices), &quadVertices, GL_STATIC_DRAW);
+        glEnableVertexAttribArray(0);
+        glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 14 * sizeof(float), (void*)0);
+        glEnableVertexAttribArray(1);
+        glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 14 * sizeof(float), (void*)(3 * sizeof(float)));
+        glEnableVertexAttribArray(2);
+        glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, 14 * sizeof(float), (void*)(6 * sizeof(float)));
+        glEnableVertexAttribArray(3);
+        glVertexAttribPointer(3, 3, GL_FLOAT, GL_FALSE, 14 * sizeof(float), (void*)(8 * sizeof(float)));
+        glEnableVertexAttribArray(4);
+        glVertexAttribPointer(4, 3, GL_FLOAT, GL_FALSE, 14 * sizeof(float), (void*)(11 * sizeof(float)));
+    }
+    glBindVertexArray(quadVAO);
+    glDrawArrays(GL_TRIANGLES, 0, 6);
+    glBindVertexArray(0);
+}
+
+
+unsigned int loadTexture(char const * path)
+{
+    unsigned int textureID;
+    glGenTextures(1, &textureID);
+
+    int width, height, nrComponents;
+    unsigned char *data = stbi_load(path, &width, &height, &nrComponents, 0);
+    if (data)
+    {
+        GLenum format;
+        if (nrComponents == 1)
+            format = GL_RED;
+        else if (nrComponents == 3)
+            format = GL_RGB;
+        else if (nrComponents == 4)
+            format = GL_RGBA;
+
+        glBindTexture(GL_TEXTURE_2D, textureID);
+        glTexImage2D(GL_TEXTURE_2D, 0, format, width, height, 0, format, GL_UNSIGNED_BYTE, data);
+        glGenerateMipmap(GL_TEXTURE_2D);
+
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S,  GL_REPEAT);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+
+        stbi_image_free(data);
+    }
+    else
+    {
+        std::cout << "Texture failed to load at path: " << path << std::endl;
+        stbi_image_free(data);
+    }
 
     return textureID;
 }
