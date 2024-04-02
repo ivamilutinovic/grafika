@@ -39,7 +39,9 @@ float lastY = SCR_HEIGHT / 2.0f;
 bool firstMouse = true;
 
 bool blinn = false;
-float heightScale = 0.08;
+float heightScale = 0.1;
+bool hdr = true;
+float exposure = 0.1f;
 
 // timing
 float deltaTime = 0.0f;
@@ -130,6 +132,7 @@ ProgramState *programState;
 void DrawImGui(ProgramState *programState);
 unsigned int loadTexture(const char *path);
 void renderQuad();
+void renderGround();
 
 int main() {
     // glfw: initialize and configure
@@ -202,6 +205,7 @@ int main() {
     Shader skyboxShader("resources/shaders/skybox.vs", "resources/shaders/skybox.fs");
     Shader cubeShader("resources/shaders/cubeShader.vs", "resources/shaders/cubeShader.fs");
     Shader normalMappingShader("resources/shaders/normal_mapping.vs", "resources/shaders/normal_mapping.fs");
+    Shader hdrShader("resources/shaders/hdr.vs", "resources/shaders/hdr.fs");
 
     // load textures
     // -------------
@@ -232,10 +236,13 @@ int main() {
     Model lanternModel("resources/objects/lantern/scene.gltf");
     horseModel.SetShaderTextureNamePrefix("material.");
 
+    Model planeModel("resources/objects/plane_low_poly/scene.gltf");
+    planeModel.SetShaderTextureNamePrefix("material.");
+
     // svetla
 
     DirLight directional;
-    directional.direction = glm::vec3(5.50f, 5.0f, 5.50f);
+    directional.direction = glm::vec3(-5.50f, -5.0f, -5.50f);
     directional.ambient = glm::vec3(0.09f);
     directional.diffuse = glm::vec3(0.4f);
     directional.specular = glm::vec3(0.5f);
@@ -243,9 +250,9 @@ int main() {
     SpotLight spotlight;
     spotlight.position = programState->camera.Position;
     spotlight.direction = programState->camera.Front;
-    spotlight.ambient = glm::vec3(0.f);
-    spotlight.diffuse = glm::vec3(1.0f, 1.0f, 1.0f);
-    spotlight.specular = glm::vec3(1.0f, 1.0f, 1.0f);
+    spotlight.ambient = glm::vec3(2.0f);
+    spotlight.diffuse = glm::vec3(2.0f);
+    spotlight.specular = glm::vec3(2.0f);
     spotlight.cutOff = glm::cos(glm::radians(12.5f));
     spotlight.outerCutOff = glm::cos(glm::radians(15.0f));
     spotlight.constant = 1.0f;
@@ -254,9 +261,9 @@ int main() {
 
     PointLight& pointLight = programState->pointLight;
     pointLight.position = glm::vec3(-2.0f, -1.7, 0.0);
-    pointLight.ambient = glm::vec3(0.1, 0.1, 0.1);
-    pointLight.diffuse = glm::vec3(0.6, 0.6, 0.6);
-    pointLight.specular = glm::vec3(0.5, 0.5, 0.5);
+    pointLight.ambient = glm::vec3(2.0f, 2.0f, 1.0f);
+    pointLight.diffuse = glm::vec3(2.0f, 2.0f, 1.0f);
+    pointLight.specular = glm::vec3(2.0f, 2.0f, 1.0f);
     pointLight.constant = 1.0f;
     pointLight.linear = 0.09f;
     pointLight.quadratic = 0.032f;
@@ -392,9 +399,35 @@ int main() {
     skyboxShader.use();
     skyboxShader.setInt("skybox", 0);
 
+    //HDR
+    unsigned int hdrFBO;
+    glGenFramebuffers(1, &hdrFBO);
+    // create floating point color buffer
+    unsigned int colorBuffer;
+    glGenTextures(1, &colorBuffer);
+    glBindTexture(GL_TEXTURE_2D, colorBuffer);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA16F, SCR_WIDTH, SCR_HEIGHT, 0, GL_RGBA, GL_FLOAT, NULL);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    // create depth buffer (renderbuffer)
+    unsigned int rboDepth;
+    glGenRenderbuffers(1, &rboDepth);
+    glBindRenderbuffer(GL_RENDERBUFFER, rboDepth);
+    glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT, SCR_WIDTH, SCR_HEIGHT);
+    // attach buffers
+    glBindFramebuffer(GL_FRAMEBUFFER, hdrFBO);
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, colorBuffer, 0);
+    glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, rboDepth);
+    if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
+        std::cout << "Framebuffer not complete!" << std::endl;
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+
+    hdrShader.use();
+    hdrShader.setInt("hdrBuffer", 0);
+
     // draw in wireframe
     //glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
-
+    //float angle = 0.0;
     // render loop
     // -----------
     while (!glfwWindowShouldClose(window)) {
@@ -413,6 +446,11 @@ int main() {
         // ------
         glClearColor(programState->clearColor.r, programState->clearColor.g, programState->clearColor.b, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+        glBindFramebuffer(GL_FRAMEBUFFER, hdrFBO);
+        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+        //------------------------------------------------------------------------------------------------
+
 
         // view/projection transformations
         glm::mat4 projection = glm::perspective(glm::radians(programState->camera.Zoom),
@@ -442,9 +480,9 @@ int main() {
         // spotLight
         normalMappingShader.setVec3("spotLight.position", programState->camera.Position);
         normalMappingShader.setVec3("spotLight.direction", programState->camera.Front);
-        normalMappingShader.setVec3("spotLight.ambient", 0.0f, 0.0f, 0.0f);
-        normalMappingShader.setVec3("spotLight.diffuse", 1.0f, 1.0f, 1.0f);
-        normalMappingShader.setVec3("spotLight.specular", 1.0f, 1.0f, 1.0f);
+        normalMappingShader.setVec3("spotLight.ambient", spotlight.ambient);
+        normalMappingShader.setVec3("spotLight.diffuse", spotlight.diffuse);
+        normalMappingShader.setVec3("spotLight.specular", spotlight.specular);
         normalMappingShader.setFloat("spotLight.constant", 1.0f);
         normalMappingShader.setFloat("spotLight.linear", 0.09);
         normalMappingShader.setFloat("spotLight.quadratic", 0.032);
@@ -452,10 +490,10 @@ int main() {
         normalMappingShader.setFloat("spotLight.outerCutOff", glm::cos(glm::radians(15.0f)));
 
         // directional light
-        normalMappingShader.setVec3("dirLight.direction", -0.2f, -1.0f, -0.3f);
-        normalMappingShader.setVec3("dirLight.ambient", 0.05f, 0.05f, 0.05f);
-        normalMappingShader.setVec3("dirLight.diffuse", 0.4f, 0.4f, 0.4f);
-        normalMappingShader.setVec3("dirLight.specular", 0.5f, 0.5f, 0.5f);
+        normalMappingShader.setVec3("dirLight.direction", directional.direction);
+        normalMappingShader.setVec3("dirLight.ambient", directional.ambient);
+        normalMappingShader.setVec3("dirLight.diffuse", directional.diffuse);
+        normalMappingShader.setVec3("dirLight.specular", directional.specular);
 
         normalMappingShader.setBool("blinn", blinn);
         normalMappingShader.setFloat("heightScale", heightScale);
@@ -466,7 +504,7 @@ int main() {
         glBindTexture(GL_TEXTURE_2D, normalMap);
         glActiveTexture(GL_TEXTURE2);
         glBindTexture(GL_TEXTURE_2D, depthMap);
-        renderQuad();
+        renderGround();
 
         ourShader.use();
 
@@ -486,9 +524,9 @@ int main() {
         // spotLight
         ourShader.setVec3("spotLight.position", programState->camera.Position);
         ourShader.setVec3("spotLight.direction", programState->camera.Front);
-        ourShader.setVec3("spotLight.ambient", 0.0f, 0.0f, 0.0f);
-        ourShader.setVec3("spotLight.diffuse", 1.0f, 1.0f, 1.0f);
-        ourShader.setVec3("spotLight.specular", 1.0f, 1.0f, 1.0f);
+        ourShader.setVec3("spotLight.ambient", spotlight.ambient);
+        ourShader.setVec3("spotLight.diffuse", spotlight.diffuse);
+        ourShader.setVec3("spotLight.specular", spotlight.specular);
         ourShader.setFloat("spotLight.constant", 1.0f);
         ourShader.setFloat("spotLight.linear", 0.09);
         ourShader.setFloat("spotLight.quadratic", 0.032);
@@ -496,10 +534,10 @@ int main() {
         ourShader.setFloat("spotLight.outerCutOff", glm::cos(glm::radians(15.0f)));
 
         // directional light
-        ourShader.setVec3("dirLight.direction", -0.2f, -1.0f, -0.3f);
-        ourShader.setVec3("dirLight.ambient", 0.05f, 0.05f, 0.05f);
-        ourShader.setVec3("dirLight.diffuse", 0.4f, 0.4f, 0.4f);
-        ourShader.setVec3("dirLight.specular", 0.5f, 0.5f, 0.5f);
+        ourShader.setVec3("dirLight.direction", directional.direction);
+        ourShader.setVec3("dirLight.ambient", directional.ambient);
+        ourShader.setVec3("dirLight.diffuse", directional.diffuse);
+        ourShader.setVec3("dirLight.specular", directional.specular);
 
         ourShader.setBool("blinn", blinn);
 
@@ -569,6 +607,18 @@ int main() {
         lanternModel.Draw(ourShader);
         glDisable(GL_BLEND);
 
+        // render the plane model
+        glm::mat4 model5 = glm::mat4(1.0f);
+        float planeX = 8*cos(glfwGetTime());
+        float planeZ = 8*sin(glfwGetTime());
+
+        model5 = glm::translate(model5,glm::vec3(planeX, 8, planeZ));
+        model5 = glm::rotate(model5, (float)glm::radians(-90.0),glm::vec3(1, 0, 0));
+        model5 = glm::rotate(model5, (float)glfwGetTime(),glm::vec3(0.0, 0.0f, -1.0f));
+        model5 = glm::scale(model5, glm::vec3(1.0, 1.0,1.0));
+        ourShader.setMat4("model", model5);
+        planeModel.Draw(ourShader);
+
         //render skybox
         glDepthMask(GL_FALSE);
         glDepthFunc(GL_LEQUAL);
@@ -581,6 +631,18 @@ int main() {
         glDrawArrays(GL_TRIANGLES, 0, 36);
         glDepthMask(GL_TRUE);
         glDepthFunc(GL_LESS);
+
+        glBindFramebuffer(GL_FRAMEBUFFER, 0);
+        //--------------------------------------------------------------------------------------------
+        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+        hdrShader.use();
+        glActiveTexture(GL_TEXTURE0);
+        glBindTexture(GL_TEXTURE_2D, colorBuffer);
+        hdrShader.setInt("hdr", hdr);
+        hdrShader.setFloat("exposure", exposure);
+        renderQuad();
+
 
         if (programState->ImGuiEnabled)
             DrawImGui(programState);
@@ -687,6 +749,11 @@ void DrawImGui(ProgramState *programState) {
         ImGui::Text("(Yaw, Pitch): (%f, %f)", c.Yaw, c.Pitch);
         ImGui::Text("Camera front: (%f, %f, %f)", c.Front.x, c.Front.y, c.Front.z);
         ImGui::Checkbox("Camera mouse update", &programState->CameraMouseMovementUpdateEnabled);
+        ImGui:: Text("HDR (press H): %d", hdr);
+        ImGui:: Text("Exposure (UP and DOWN to change): %f ", exposure);
+        ImGui:: Text("Blinn (press B): %d ", blinn);
+
+
         ImGui::End();
     }
 
@@ -706,6 +773,19 @@ void key_callback(GLFWwindow *window, int key, int scancode, int action, int mod
     }
     if(glfwGetKey(window, GLFW_KEY_B) == GLFW_PRESS) {
         blinn = !blinn;
+    }
+    if(glfwGetKey(window, GLFW_KEY_H) == GLFW_PRESS) {
+        hdr = !hdr;
+    }
+    if(glfwGetKey(window, GLFW_KEY_UP) == GLFW_PRESS) {
+        exposure += 0.05;
+        if(exposure > 1)
+            exposure = 1;
+    }
+    if(glfwGetKey(window, GLFW_KEY_DOWN) == GLFW_PRESS) {
+        exposure -= 0.05;
+        if(exposure < 0)
+            exposure = 0;
     }
 }
 
@@ -748,11 +828,11 @@ unsigned int loadCubemap(vector<std::string> faces)
     return textureID;
 }
 
-unsigned int quadVAO = 0;
-unsigned int quadVBO;
-void renderQuad()
+unsigned int groundVAO = 0;
+unsigned int groundVBO;
+void renderGround()
 {
-    if (quadVAO == 0)
+    if (groundVAO == 0)
     {
         // positions
         glm::vec3 pos1(60.0f,  -2.0f, 60.0f);
@@ -817,10 +897,10 @@ void renderQuad()
                 pos4.x, pos4.y, pos4.z, nm.x, nm.y, nm.z, uv4.x, uv4.y, tangent2.x, tangent2.y, tangent2.z, bitangent2.x, bitangent2.y, bitangent2.z
         };
         // configure plane VAO
-        glGenVertexArrays(1, &quadVAO);
-        glGenBuffers(1, &quadVBO);
-        glBindVertexArray(quadVAO);
-        glBindBuffer(GL_ARRAY_BUFFER, quadVBO);
+        glGenVertexArrays(1, &groundVAO);
+        glGenBuffers(1, &groundVBO);
+        glBindVertexArray(groundVAO);
+        glBindBuffer(GL_ARRAY_BUFFER, groundVBO);
         glBufferData(GL_ARRAY_BUFFER, sizeof(quadVertices), &quadVertices, GL_STATIC_DRAW);
         glEnableVertexAttribArray(0);
         glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 14 * sizeof(float), (void*)0);
@@ -833,8 +913,36 @@ void renderQuad()
         glEnableVertexAttribArray(4);
         glVertexAttribPointer(4, 3, GL_FLOAT, GL_FALSE, 14 * sizeof(float), (void*)(11 * sizeof(float)));
     }
-    glBindVertexArray(quadVAO);
+    glBindVertexArray(groundVAO);
     glDrawArrays(GL_TRIANGLES, 0, 6);
+    glBindVertexArray(0);
+}
+unsigned int quadVAO = 0;
+unsigned int quadVBO;
+void renderQuad()
+{
+    if (quadVAO == 0)
+    {
+        float quadVertices[] = {
+                // positions        // texture Coords
+                -1.0f,  1.0f, 0.0f, 0.0f, 1.0f,
+                -1.0f, -1.0f, 0.0f, 0.0f, 0.0f,
+                1.0f,  1.0f, 0.0f, 1.0f, 1.0f,
+                1.0f, -1.0f, 0.0f, 1.0f, 0.0f,
+        };
+        // setup plane VAO
+        glGenVertexArrays(1, &quadVAO);
+        glGenBuffers(1, &quadVBO);
+        glBindVertexArray(quadVAO);
+        glBindBuffer(GL_ARRAY_BUFFER, quadVBO);
+        glBufferData(GL_ARRAY_BUFFER, sizeof(quadVertices), &quadVertices, GL_STATIC_DRAW);
+        glEnableVertexAttribArray(0);
+        glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void*)0);
+        glEnableVertexAttribArray(1);
+        glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void*)(3 * sizeof(float)));
+    }
+    glBindVertexArray(quadVAO);
+    glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
     glBindVertexArray(0);
 }
 
