@@ -1,5 +1,7 @@
 #version 330 core
-out vec4 FragColor;
+
+layout (location = 0) out vec4 FragColor;
+layout (location = 1) out vec4 BrightColor;
 
 in vec3 FragPos;
 in vec2 TexCoords;
@@ -47,19 +49,19 @@ uniform sampler2D diffuseMap;
 uniform sampler2D normalMap;
 uniform sampler2D depthMap;
 
-uniform vec3 lightPos;
-uniform vec3 viewPos;
+
+// uniform vec3 viewPos;
 
 uniform DirLight dirLight;
 uniform PointLight pointLight;
 uniform SpotLight spotLight;
 uniform bool blinn;
+uniform float heightScale;
 
 vec3 CalcDirLight(DirLight light, vec3 normal, vec3 viewDir, vec2 texCoords);
 vec3 CalcPointLight(PointLight light, vec3 normal, vec3 fragPos, vec3 viewDir, vec2 texCoords);
 vec3 CalcSpotLight(SpotLight light, vec3 normal, vec3 fragPos, vec3 viewDir, vec2 texCoords);
 
-uniform float heightScale;
 
 vec2 ParallaxMapping(vec2 texCoords, vec3 viewDir){
     // number of depth layers
@@ -71,7 +73,7 @@ vec2 ParallaxMapping(vec2 texCoords, vec3 viewDir){
     // depth of current layer
     float currentLayerDepth = 0.0;
     // the amount to shift the texture coordinates per layer (from vector P)
-    vec2 P = viewDir.xy * heightScale;
+    vec2 P = viewDir.xy/ viewDir.z * heightScale;
     vec2 deltaTexCoords = P / numLayers;
 
     // get initial values
@@ -106,7 +108,7 @@ void main()
     vec2 texCoords = TexCoords;
 
     texCoords = ParallaxMapping(TexCoords,  viewDir);
-    if(texCoords.x > 60.0 || texCoords.y > 60.0 || texCoords.x < 0.0 || texCoords.y < 0.0)
+    if(texCoords.x > 1.0 || texCoords.y > 1.0 || texCoords.x < 0.0 || texCoords.y < 0.0)
          discard;
 
     // obtain normal from normal map in range [0,1]
@@ -118,6 +120,13 @@ void main()
     results += CalcSpotLight(spotLight, normal, FragPos, viewDir, texCoords);
     results += CalcPointLight(pointLight, normal, TangentFragPos, viewDir, texCoords);
 
+    float brightness = dot(results, vec3(0.2126, 0.7152, 0.0722));
+    if(brightness > 1.0)
+          BrightColor = vec4(results, 1.0);
+    else
+          BrightColor = vec4(0.0, 0.0, 0.0, 1.0);
+
+
     FragColor = vec4(results, 1.0);
 }
 
@@ -125,7 +134,7 @@ void main()
 // calculates the color when using a directional light.
 vec3 CalcDirLight(DirLight light, vec3 normal, vec3 viewDir, vec2 texCoords)
 {
-    vec3 lightDir = normalize(-TBN * light.direction); //tbn
+    vec3 lightDir = normalize(-light.direction);
     // diffuse shading
     float diff = max(dot(normal, lightDir), 0.0);
     // specular shading
@@ -146,7 +155,7 @@ vec3 CalcDirLight(DirLight light, vec3 normal, vec3 viewDir, vec2 texCoords)
 // calculates the color when using a point light.
 vec3 CalcPointLight(PointLight light, vec3 normal, vec3 fragPos, vec3 viewDir, vec2 texCoords)
 {
-    vec3 lightDir = normalize(TBN * light.position - TangentFragPos);
+    vec3 lightDir = normalize(light.position - fragPos);
     // diffuse shading
     float diff = max(dot(normal, lightDir), 0.0);
     // specular shading
@@ -159,7 +168,7 @@ vec3 CalcPointLight(PointLight light, vec3 normal, vec3 fragPos, vec3 viewDir, v
     }
 
     // attenuation
-    float distance = length(light.position - TangentFragPos);
+    float distance = length(light.position - fragPos);
     float attenuation = 1.0 / (light.constant + light.linear * distance + light.quadratic * (distance * distance));
     // combine results
 
@@ -176,7 +185,7 @@ vec3 CalcPointLight(PointLight light, vec3 normal, vec3 fragPos, vec3 viewDir, v
 // calculates the color when using a spot light.
 vec3 CalcSpotLight(SpotLight light, vec3 normal, vec3 fragPos, vec3 viewDir, vec2 texCoords)
 {
-    vec3 lightDir = normalize(TBN * light.position - TangentFragPos);
+    vec3 lightDir = normalize(light.position - fragPos);
     // diffuse shading
     float diff = max(dot(normal, lightDir), 0.0);
     // specular shading
@@ -189,7 +198,7 @@ vec3 CalcSpotLight(SpotLight light, vec3 normal, vec3 fragPos, vec3 viewDir, vec
     }
 
     // attenuation
-    float distance = length(TBN * light.position - TangentFragPos);
+    float distance = length(light.position - fragPos);
     float attenuation = 1.0 / (light.constant + light.linear * distance + light.quadratic * (distance * distance));
     // spotlight intensity
     float theta = dot(lightDir, normalize(-light.direction));

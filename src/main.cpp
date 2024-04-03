@@ -134,7 +134,7 @@ ProgramState *programState;
 void DrawImGui(ProgramState *programState);
 unsigned int loadTexture(const char *path);
 void renderQuad();
-void renderGround();
+void renderWater();
 
 int main() {
     // glfw: initialize and configure
@@ -212,9 +212,9 @@ int main() {
 
     // load textures
     // -------------
-    unsigned int diffuseMap = loadTexture(FileSystem::getPath("resources/textures/Brick02_Base_Color.png").c_str());
-    unsigned int normalMap  = loadTexture(FileSystem::getPath("resources/textures/Brick02_Normal.png").c_str());
-    unsigned int depthMap  = loadTexture(FileSystem::getPath("resources/textures/Brick02_Height.png").c_str());
+    unsigned int diffuseMap = loadTexture(FileSystem::getPath("resources/textures/Wave_Base_Color.png").c_str());
+    unsigned int normalMap  = loadTexture(FileSystem::getPath("resources/textures/Wave_Normal.png").c_str());
+    unsigned int depthMap  = loadTexture(FileSystem::getPath("resources/textures/Wave_Height.png").c_str());
 
 
     // shader configuration
@@ -244,6 +244,9 @@ int main() {
 
     Model groundModel("resources/objects/mossygrassy_landscape/scene.gltf");
     groundModel.SetShaderTextureNamePrefix("material.");
+
+    Model troughModel("resources/objects/feeding_trough._low_poly_and_game-ready./scene.gltf");
+    troughModel.SetShaderTextureNamePrefix("material.");
 
     // svetla
 
@@ -502,53 +505,55 @@ int main() {
         glm::mat4 view = programState->camera.GetViewMatrix();
         glm::mat4 model = glm::mat4(1.0f);
 
-//        normalMappingShader.use();
-//        normalMappingShader.setMat4("projection", projection);
-//        normalMappingShader.setMat4("view", view);
-//
-//        // render normal-mapped quad
-//        model = glm::mat4(1.0f);
-////        model = glm::translate(model, glm::vec3(0.0f, 0.0f, 5.40f));
-//        normalMappingShader.setMat4("model", model);
-//        normalMappingShader.setVec3("viewPos", programState->camera.Position);
-//
-//        // pointlight
-//        normalMappingShader.setVec3("pointLight.position", pointLight.position);
-//        normalMappingShader.setVec3("pointLight.ambient", pointLight.ambient);
-//        normalMappingShader.setVec3("pointLight.diffuse", pointLight.diffuse);
-//        normalMappingShader.setVec3("pointLight.specular", pointLight.specular);
-//        normalMappingShader.setFloat("pointLight.constant", pointLight.constant);
-//        normalMappingShader.setFloat("pointLight.linear", pointLight.linear);
-//        normalMappingShader.setFloat("pointLight.quadratic", pointLight.quadratic);
-//
-//        // spotLight
-//        normalMappingShader.setVec3("spotLight.position", programState->camera.Position);
-//        normalMappingShader.setVec3("spotLight.direction", programState->camera.Front);
-//        normalMappingShader.setVec3("spotLight.ambient", spotlight.ambient);
-//        normalMappingShader.setVec3("spotLight.diffuse", spotlight.diffuse);
-//        normalMappingShader.setVec3("spotLight.specular", spotlight.specular);
-//        normalMappingShader.setFloat("spotLight.constant", 1.0f);
-//        normalMappingShader.setFloat("spotLight.linear", 0.09);
-//        normalMappingShader.setFloat("spotLight.quadratic", 0.032);
-//        normalMappingShader.setFloat("spotLight.cutOff", glm::cos(glm::radians(12.5f)));
-//        normalMappingShader.setFloat("spotLight.outerCutOff", glm::cos(glm::radians(15.0f)));
-//
-//        // directional light
-//        normalMappingShader.setVec3("dirLight.direction", directional.direction);
-//        normalMappingShader.setVec3("dirLight.ambient", directional.ambient);
-//        normalMappingShader.setVec3("dirLight.diffuse", directional.diffuse);
-//        normalMappingShader.setVec3("dirLight.specular", directional.specular);
-//
-//        normalMappingShader.setBool("blinn", blinn);
-//        normalMappingShader.setFloat("heightScale", heightScale);
-//
-//        glActiveTexture(GL_TEXTURE0);
-//        glBindTexture(GL_TEXTURE_2D, diffuseMap);
-//        glActiveTexture(GL_TEXTURE1);
-//        glBindTexture(GL_TEXTURE_2D, normalMap);
-//        glActiveTexture(GL_TEXTURE2);
-//        glBindTexture(GL_TEXTURE_2D, depthMap);
-//        renderGround();
+        normalMappingShader.use();
+        normalMappingShader.setMat4("projection", projection);
+        normalMappingShader.setMat4("view", view);
+
+        // render normal-mapped quad
+        model = glm::mat4(1.0f);
+        model = glm::translate(model, glm::vec3(0.0f, -1.520f, -4.0f));
+        model = glm::rotate(model, (float)glm::radians(-90.0), glm::vec3(1, 0, 0));
+        model = glm::scale(model, glm::vec3(0.75f, 0.35f, 1.0f));
+        normalMappingShader.setMat4("model", model);
+        normalMappingShader.setVec3("viewPos", programState->camera.Position);
+
+        // pointlight
+        normalMappingShader.setVec3("pointLight.position", pointLight.position);
+        normalMappingShader.setVec3("pointLight.ambient", pointLight.ambient);
+        normalMappingShader.setVec3("pointLight.diffuse", pointLight.diffuse);
+        normalMappingShader.setVec3("pointLight.specular", pointLight.specular);
+        normalMappingShader.setFloat("pointLight.constant", pointLight.constant);
+        normalMappingShader.setFloat("pointLight.linear", pointLight.linear);
+        normalMappingShader.setFloat("pointLight.quadratic", pointLight.quadratic);
+
+        // spotLight
+        normalMappingShader.setVec3("spotLight.position", programState->camera.Position);
+        normalMappingShader.setVec3("spotLight.direction", programState->camera.Front);
+        normalMappingShader.setVec3("spotLight.ambient", spotlight.ambient);
+        normalMappingShader.setVec3("spotLight.diffuse", spotlight.diffuse);
+        normalMappingShader.setVec3("spotLight.specular", spotlight.specular);
+        normalMappingShader.setFloat("spotLight.constant", 1.0f);
+        normalMappingShader.setFloat("spotLight.linear", 0.09);
+        normalMappingShader.setFloat("spotLight.quadratic", 0.032);
+        normalMappingShader.setFloat("spotLight.cutOff", glm::cos(glm::radians(12.5f)));
+        normalMappingShader.setFloat("spotLight.outerCutOff", glm::cos(glm::radians(15.0f)));
+
+        // directional light
+        normalMappingShader.setVec3("dirLight.direction", directional.direction);
+        normalMappingShader.setVec3("dirLight.ambient", directional.ambient);
+        normalMappingShader.setVec3("dirLight.diffuse", directional.diffuse);
+        normalMappingShader.setVec3("dirLight.specular", directional.specular);
+
+        normalMappingShader.setBool("blinn", blinn);
+        normalMappingShader.setFloat("heightScale", heightScale);
+
+        glActiveTexture(GL_TEXTURE0);
+        glBindTexture(GL_TEXTURE_2D, diffuseMap);
+        glActiveTexture(GL_TEXTURE1);
+        glBindTexture(GL_TEXTURE_2D, normalMap);
+        glActiveTexture(GL_TEXTURE2);
+        glBindTexture(GL_TEXTURE_2D, depthMap);
+        renderWater();
 
         ourShader.use();
 
@@ -659,6 +664,14 @@ int main() {
         model6 = glm::scale(model6, glm::vec3(80.0f, 80.0f, 80.0f));
         ourShader.setMat4("model", model6);
         groundModel.Draw(ourShader);
+
+        //render trough
+        glm::mat4 model7 = glm::mat4(1.0f);
+        model7 = glm::translate(model7,glm::vec3(0, -1.7f, -4));
+//        model7 = glm::rotate(model7, (float)glm::radians(-90.0), glm::vec3(0, 1, 0));
+        model6 = glm::scale(model7, glm::vec3(0.8f, 0.8f, 0.8f));
+        ourShader.setMat4("model", model6);
+        troughModel.Draw(ourShader);
 
         glEnable(GL_BLEND);
         glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
@@ -911,22 +924,21 @@ unsigned int loadCubemap(vector<std::string> faces)
     return textureID;
 }
 
-unsigned int groundVAO = 0;
-unsigned int groundVBO;
-void renderGround()
-{
-    if (groundVAO == 0)
+unsigned int WaterVAO = 0;
+unsigned int WaterVBO;
+void renderWater(){
+    if (WaterVAO == 0)
     {
         // positions
-        glm::vec3 pos1(60.0f,  -2.0f, 60.0f);
-        glm::vec3 pos2(60.0f, -2.0f, -60.0f);
-        glm::vec3 pos3( -60.0f, -2.0f, -60.0f);
-        glm::vec3 pos4( -60.0f, -2.0f, 60.0f);
+        glm::vec3 pos1(-1.0f,  1.0f, 0.0f);
+        glm::vec3 pos2(-1.0f, -1.0f, 0.0f);
+        glm::vec3 pos3( 1.0f, -1.0f, 0.0f);
+        glm::vec3 pos4( 1.0f,  1.0f, 0.0f);
         // texture coordinates
-        glm::vec2 uv1(0.0f, 60.0f);
+        glm::vec2 uv1(0.0f, 1.0f);
         glm::vec2 uv2(0.0f, 0.0f);
-        glm::vec2 uv3(60.0f, 0.0f);
-        glm::vec2 uv4(60.0f, 60.0f);
+        glm::vec2 uv3(1.0f, 0.0f);
+        glm::vec2 uv4(1.0f, 1.0f);
         // normal vector
         glm::vec3 nm(0.0f, 0.0f, 1.0f);
 
@@ -945,10 +957,12 @@ void renderGround()
         tangent1.x = f * (deltaUV2.y * edge1.x - deltaUV1.y * edge2.x);
         tangent1.y = f * (deltaUV2.y * edge1.y - deltaUV1.y * edge2.y);
         tangent1.z = f * (deltaUV2.y * edge1.z - deltaUV1.y * edge2.z);
+        tangent1 = glm::normalize(tangent1);
 
         bitangent1.x = f * (-deltaUV2.x * edge1.x + deltaUV1.x * edge2.x);
         bitangent1.y = f * (-deltaUV2.x * edge1.y + deltaUV1.x * edge2.y);
         bitangent1.z = f * (-deltaUV2.x * edge1.z + deltaUV1.x * edge2.z);
+        bitangent1 = glm::normalize(bitangent1);
 
         // triangle 2
         // ----------
@@ -962,11 +976,13 @@ void renderGround()
         tangent2.x = f * (deltaUV2.y * edge1.x - deltaUV1.y * edge2.x);
         tangent2.y = f * (deltaUV2.y * edge1.y - deltaUV1.y * edge2.y);
         tangent2.z = f * (deltaUV2.y * edge1.z - deltaUV1.y * edge2.z);
+        tangent2 = glm::normalize(tangent2);
 
 
         bitangent2.x = f * (-deltaUV2.x * edge1.x + deltaUV1.x * edge2.x);
         bitangent2.y = f * (-deltaUV2.x * edge1.y + deltaUV1.x * edge2.y);
         bitangent2.z = f * (-deltaUV2.x * edge1.z + deltaUV1.x * edge2.z);
+        bitangent2 = glm::normalize(bitangent2);
 
 
         float quadVertices[] = {
@@ -980,10 +996,10 @@ void renderGround()
                 pos4.x, pos4.y, pos4.z, nm.x, nm.y, nm.z, uv4.x, uv4.y, tangent2.x, tangent2.y, tangent2.z, bitangent2.x, bitangent2.y, bitangent2.z
         };
         // configure plane VAO
-        glGenVertexArrays(1, &groundVAO);
-        glGenBuffers(1, &groundVBO);
-        glBindVertexArray(groundVAO);
-        glBindBuffer(GL_ARRAY_BUFFER, groundVBO);
+        glGenVertexArrays(1, &WaterVAO);
+        glGenBuffers(1, &WaterVBO);
+        glBindVertexArray(WaterVAO);
+        glBindBuffer(GL_ARRAY_BUFFER, WaterVBO);
         glBufferData(GL_ARRAY_BUFFER, sizeof(quadVertices), &quadVertices, GL_STATIC_DRAW);
         glEnableVertexAttribArray(0);
         glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 14 * sizeof(float), (void*)0);
@@ -996,7 +1012,7 @@ void renderGround()
         glEnableVertexAttribArray(4);
         glVertexAttribPointer(4, 3, GL_FLOAT, GL_FALSE, 14 * sizeof(float), (void*)(11 * sizeof(float)));
     }
-    glBindVertexArray(groundVAO);
+    glBindVertexArray(WaterVAO);
     glDrawArrays(GL_TRIANGLES, 0, 6);
     glBindVertexArray(0);
 }
