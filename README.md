@@ -47,3 +47,6 @@ Asistent: Marko Spasić
 
 ---------------
 ## Galerija:
+![photo 1](/resources/galerija/slika1.png)
+![photo 2](/resources/galerija/slika2.png)
+![photo 3](/resources/galerija/slika3.png)
